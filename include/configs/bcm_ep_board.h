@@ -11,8 +11,6 @@
 
 #define CONFIG_SKIP_LOWLEVEL_INIT
 
-#define CONFIG_SYS_CACHELINE_SIZE	64
-
 /*
  * Memory configuration
  * (these must be defined elsewhere)
@@ -93,5 +91,6 @@
 /* Misc utility code */
 #define CONFIG_BOUNCE_BUFFER
 #define CONFIG_CRC32_VERIFY
+#define CONFIG_ARMV7_PSCI_NR_CPUS	4
 
 #endif /* __BCM_EP_BOARD_H */

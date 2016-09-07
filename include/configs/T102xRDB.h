@@ -18,7 +18,6 @@
 #define CONFIG_E500MC			/* BOOKE e500mc family */
 #define CONFIG_SYS_BOOK3E_HV		/* Category E.HV supported */
 #define CONFIG_MP			/* support multiple processors */
-#define CONFIG_PHYS_64BIT
 #define CONFIG_ENABLE_36BIT_PHYS
 
 #ifdef CONFIG_PHYS_64BIT
@@ -897,7 +896,7 @@ unsigned long get_board_ddr_clk(void);
 	"cmp.b $loadaddr $ubootaddr $filesize\0"		\
 	"consoledev=ttyS0\0"					\
 	"ramdiskaddr=2000000\0"					\
-	"fdtaddr=c00000\0"					\
+	"fdtaddr=1e00000\0"					\
 	"bdev=sda3\0"
 
 #define CONFIG_LINUX					\

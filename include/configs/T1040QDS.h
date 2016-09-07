@@ -27,7 +27,6 @@
  * T1040 QDS board configuration file
  */
 #define CONFIG_T1040QDS
-#define CONFIG_PHYS_64BIT
 #define CONFIG_DISPLAY_BOARDINFO
 
 #ifdef CONFIG_RAMBOOT_PBL
@@ -770,7 +769,7 @@ unsigned long get_board_ddr_clk(void);
 	"consoledev=ttyS0\0"					\
 	"ramdiskaddr=2000000\0"					\
 	"ramdiskfile=t1040qds/ramdisk.uboot\0"			\
-	"fdtaddr=c00000\0"					\
+	"fdtaddr=1e00000\0"					\
 	"fdtfile=t1040qds/t1040qds.dtb\0"			\
 	"bdev=sda3\0"
 
