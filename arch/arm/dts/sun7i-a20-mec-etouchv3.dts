@@ -8,7 +8,7 @@
 #include <dt-bindings/pinctrl/sun4i-a10.h>
 
 / {
-	model = "Olimex A20-OLinuXino-LIME";
+	model = "MEC eTouch V3";
 	compatible = "olimex,a20-olinuxino-lime", "allwinner,sun7i-a20";
 
 	aliases {
@@ -76,4 +76,24 @@
 	pinctrl-0 = <&uart0_pins_a>;
 	status = "okay";
 };
+/*
+&ohci0 {
+	status="okay";
+};
+&ohci1 {
+	status="okay";
+};
+*/
 
+&usb_otg {
+	status="okay";
+};
+&ehci0 {
+	status="okay";
+};
+&ehci1 {
+	status="okay";
+};
+&usbphy {
+	status="okay";
+};
