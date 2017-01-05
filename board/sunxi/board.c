@@ -375,8 +375,10 @@ int board_mmc_init(bd_t *bis)
 	 */
 	if (readb(SPL_ADDR + 0x28) == SUNXI_BOOTED_FROM_MMC2) {
 		/* Booting from emmc / mmc2, swap */
+#ifndef CONFIG_BLK
 		mmc0->block_dev.devnum = 1;
 		mmc1->block_dev.devnum = 0;
+#endif
 	}
 #endif
 
@@ -641,6 +643,7 @@ static void setup_environment(const void *fdt)
 		sid[3] = crc32(0, (unsigned char *)&sid[1], 12);
 #endif
 
+#ifdef CONFIG_NET
 		/* Ensure the NIC specific bytes of the mac are not all 0 */
 		if ((sid[3] & 0xffffff) == 0)
 			sid[3] |= 0x800000;
@@ -668,6 +671,7 @@ static void setup_environment(const void *fdt)
 
 			eth_setenv_enetaddr(ethaddr, mac_addr);
 		}
+#endif
 
 		if (!getenv("serial#")) {
 			snprintf(serial_string, sizeof(serial_string),
