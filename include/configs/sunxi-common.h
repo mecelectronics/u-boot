@@ -105,6 +105,9 @@
 #define CONFIG_SYS_INIT_RAM_SIZE	0x8000	/* 32 KiB */
 #endif
 
+#define CONFIG_SYS_MEMTEST_START 0x40000000
+#define CONFIG_SYS_MEMTEST_END   0x60000000
+
 #define CONFIG_SYS_INIT_SP_OFFSET \
 	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_ADDR \
@@ -176,8 +179,10 @@
 #define CONFIG_STACKSIZE		(256 << 10)	/* 256 KiB */
 
 /* FLASH and environment organization */
-
-#define CONFIG_SYS_NO_FLASH
+#ifdef CONFIG_SYS_NO_FLASH
+#undef CONFIG_SYS_NO_FLASH
+#endif
+#define CONFIG_SYS_NO_FLASH		1
 
 #define CONFIG_SYS_MONITOR_LEN		(768 << 10)	/* 768 KiB */
 #define CONFIG_IDENT_STRING		" Allwinner Technology"
