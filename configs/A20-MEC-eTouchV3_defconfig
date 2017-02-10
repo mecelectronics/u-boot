@@ -214,7 +214,7 @@ CONFIG_VIDEO=y
 # CONFIG_VIDEO_HDMI is not set
 # CONFIG_VIDEO_VGA is not set
 # CONFIG_VIDEO_COMPOSITE is not set
-CONFIG_VIDEO_LCD_MODE="x:320,y:480,depth:18,pclk_khz:9000,le:-28,ri:4,up:-3,lo:4,hs:30,vs:5,sync:3,vmode:0"
+CONFIG_VIDEO_LCD_MODE="x:320,y:480,depth:18,pclk_khz:10000,le:2,ri:2,up:2,lo:2,hs:2,vs:2,sync:3,vmode:0"
 CONFIG_VIDEO_LCD_DCLK_PHASE=1
 CONFIG_VIDEO_LCD_POWER="PH08"
 CONFIG_VIDEO_LCD_RESET=""
