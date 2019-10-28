@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2008
  * Sergei Poselenov, Emcraft Systems, sposelenov@emcraft.com.
@@ -7,17 +8,16 @@
  * Xianghua Xiao, (X.Xiao@motorola.com)
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <env.h>
 #include <pci.h>
 #include <asm/processor.h>
 #include <asm/immap_85xx.h>
 #include <ioports.h>
 #include <flash.h>
-#include <libfdt.h>
+#include <linux/libfdt.h>
 #include <fdt_support.h>
 #include <asm/io.h>
 #include <i2c.h>
@@ -38,7 +38,7 @@ int checkboard (void)
 	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
 	char buf[64];
 	int f;
-	int i = getenv_f("serial#", buf, sizeof(buf));
+	int i = env_get_f("serial#", buf, sizeof(buf));
 #ifdef CONFIG_PCI
 	char *src;
 #endif
@@ -378,7 +378,7 @@ static void board_backlight_brightness(int br)
 
 		/* LEDs on */
 		reg = in_be32((void *)(CONFIG_SYS_FPGA_BASE + 0x0c));
-		if (!(reg & BACKLIGHT_ENABLE));
+		if (!(reg & BACKLIGHT_ENABLE))
 			out_be32((void *)(CONFIG_SYS_FPGA_BASE + 0x0c),
 				 reg | BACKLIGHT_ENABLE);
 	} else {
@@ -409,7 +409,7 @@ void board_backlight_switch (int flag)
 		printf ("hwmon IC init failed\n");
 
 	if (flag) {
-		param = getenv("brightness");
+		param = env_get("brightness");
 		rc = param ? simple_strtol(param, NULL, 10) : -1;
 		if (rc < 0)
 			rc = DEFAULT_BRIGHTNESS;

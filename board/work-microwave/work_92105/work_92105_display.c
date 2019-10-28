@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * work_92105 display support
  *
@@ -7,8 +8,6 @@
  * The work_92105 display is a HD44780-compatible module
  * controlled through a MAX6957AAX SPI port expander, two
  * MAX518 I2C DACs and native LPC32xx GPO 15.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -16,6 +15,7 @@
 #include <asm/arch/cpu.h>
 #include <asm/arch/emc.h>
 #include <asm/gpio.h>
+#include <env.h>
 #include <spi.h>
 #include <i2c.h>
 #include <version.h>
@@ -228,7 +228,7 @@ void work_92105_display_init(void)
 	i2c_write(0x2c, 0x01, 1, &enable_backlight, 1);
 
 	/* set display contrast */
-	display_contrast_str = getenv("fwopt_dispcontrast");
+	display_contrast_str = env_get("fwopt_dispcontrast");
 	if (display_contrast_str)
 		display_contrast = simple_strtoul(display_contrast_str,
 			NULL, 10);
@@ -346,4 +346,4 @@ U_BOOT_CMD(
 	"HD44780 LCD driver control",
 	hd44780_help_text
 );
-#endif /* CONFIG_CMD_HD44780 */
+#endif /* CONFIG_CMD_HD44760 */

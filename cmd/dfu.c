@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * cmd_dfu.c -- dfu command
  *
@@ -7,8 +8,6 @@
  * Copyright (C) 2012 Samsung Electronics
  * authors: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
  *	    Lukasz Majewski <l.majewski@samsung.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -21,17 +20,20 @@
 
 static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
-	bool dfu_reset = false;
 
 	if (argc < 4)
 		return CMD_RET_USAGE;
 
+#ifdef CONFIG_DFU_OVER_USB
 	char *usb_controller = argv[1];
+#endif
+#if defined(CONFIG_DFU_OVER_USB) || defined(CONFIG_DFU_OVER_TFTP)
 	char *interface = argv[2];
 	char *devstring = argv[3];
+#endif
 
-	int ret, i = 0;
-#ifdef CONFIG_DFU_TFTP
+	int ret = 0;
+#ifdef CONFIG_DFU_OVER_TFTP
 	unsigned long addr = 0;
 	if (!strcmp(argv[1], "tftp")) {
 		if (argc == 5)
@@ -40,7 +42,7 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		return update_tftp(addr, interface, devstring);
 	}
 #endif
-
+#ifdef CONFIG_DFU_OVER_USB
 	ret = dfu_init_env_entities(interface, devstring);
 	if (ret)
 		goto done;
@@ -52,79 +54,30 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	}
 
 	int controller_index = simple_strtoul(usb_controller, NULL, 0);
-	board_usb_init(controller_index, USB_INIT_DEVICE);
-	g_dnl_clear_detach();
-	g_dnl_register("usb_dnl_dfu");
-	while (1) {
-		if (g_dnl_detach()) {
-			/*
-			 * Check if USB bus reset is performed after detach,
-			 * which indicates that -R switch has been passed to
-			 * dfu-util. In this case reboot the device
-			 */
-			if (dfu_usb_get_reset()) {
-				dfu_reset = true;
-				goto exit;
-			}
 
-			/*
-			 * This extra number of usb_gadget_handle_interrupts()
-			 * calls is necessary to assure correct transmission
-			 * completion with dfu-util
-			 */
-			if (++i == 10000)
-				goto exit;
-		}
+	run_usb_dnl_gadget(controller_index, "usb_dnl_dfu");
 
-		if (ctrlc())
-			goto exit;
-
-		if (dfu_get_defer_flush()) {
-			/*
-			 * Call to usb_gadget_handle_interrupts() is necessary
-			 * to act on ZLP OUT transaction from HOST PC after
-			 * transmitting the whole file.
-			 *
-			 * If this ZLP OUT packet is NAK'ed, the HOST libusb
-			 * function fails after timeout (by default it is set to
-			 * 5 seconds). In such situation the dfu-util program
-			 * exits with error message.
-			 */
-			usb_gadget_handle_interrupts(controller_index);
-			ret = dfu_flush(dfu_get_defer_flush(), NULL, 0, 0);
-			dfu_set_defer_flush(NULL);
-			if (ret) {
-				error("Deferred dfu_flush() failed!");
-				goto exit;
-			}
-		}
-
-		WATCHDOG_RESET();
-		usb_gadget_handle_interrupts(controller_index);
-	}
-exit:
-	g_dnl_unregister();
-	board_usb_cleanup(controller_index, USB_INIT_DEVICE);
 done:
 	dfu_free_entities();
-
-	if (dfu_reset)
-		run_command("reset", 0);
-
-	g_dnl_clear_detach();
-
+#endif
 	return ret;
 }
 
 U_BOOT_CMD(dfu, CONFIG_SYS_MAXARGS, 1, do_dfu,
 	"Device Firmware Upgrade",
+	""
+#ifdef CONFIG_DFU_OVER_USB
 	"<USB_controller> <interface> <dev> [list]\n"
 	"  - device firmware upgrade via <USB_controller>\n"
 	"    on device <dev>, attached to interface\n"
 	"    <interface>\n"
 	"    [list] - list available alt settings\n"
-#ifdef CONFIG_DFU_TFTP
-	"dfu tftp <interface> <dev> [<addr>]\n"
+#endif
+#ifdef CONFIG_DFU_OVER_TFTP
+#ifdef CONFIG_DFU_OVER_USB
+	"dfu "
+#endif
+	"tftp <interface> <dev> [<addr>]\n"
 	"  - device firmware upgrade via TFTP\n"
 	"    on device <dev>, attached to interface\n"
 	"    <interface>\n"

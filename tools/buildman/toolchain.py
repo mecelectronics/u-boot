@@ -1,6 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0+
 # Copyright (c) 2012 The Chromium OS Authors.
-#
-# SPDX-License-Identifier:	GPL-2.0+
 #
 
 import re
@@ -33,7 +32,7 @@ class MyHTMLParser(HTMLParser):
         HTMLParser.__init__(self)
         self.arch_link = None
         self.links = []
-        self._match = '_%s-' % arch
+        self.re_arch = re.compile('[-_]%s-' % arch)
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
@@ -41,7 +40,7 @@ class MyHTMLParser(HTMLParser):
                 if tag == 'href':
                     if value and value.endswith('.xz'):
                         self.links.append(value)
-                        if self._match in value:
+                        if self.re_arch.search(value):
                             self.arch_link = value
 
 
@@ -55,9 +54,11 @@ class Toolchain:
         arch: Architecture of toolchain as determined from the first
                 component of the filename. E.g. arm-linux-gcc becomes arm
         priority: Toolchain priority (0=highest, 20=lowest)
+        override_toolchain: Toolchain to use for sandbox, overriding the normal
+                one
     """
     def __init__(self, fname, test, verbose=False, priority=PRIORITY_CALC,
-                 arch=None):
+                 arch=None, override_toolchain=None):
         """Create a new toolchain object.
 
         Args:
@@ -69,6 +70,7 @@ class Toolchain:
         """
         self.gcc = fname
         self.path = os.path.dirname(fname)
+        self.override_toolchain = override_toolchain
 
         # Find the CROSS_COMPILE prefix to use for U-Boot. For example,
         # 'arm-linux-gnueabihf-gcc' turns into 'arm-linux-gnueabihf-'.
@@ -82,6 +84,8 @@ class Toolchain:
             self.arch = arch
         else:
             self.arch = self.cross[:pos] if pos != -1 else 'sandbox'
+        if self.arch == 'sandbox' and override_toolchain:
+            self.gcc = override_toolchain
 
         env = self.MakeEnvironment(False)
 
@@ -120,31 +124,73 @@ class Toolchain:
             Priority of toolchain, PRIORITY_CALC=highest, 20=lowest.
         """
         priority_list = ['-elf', '-unknown-linux-gnu', '-linux',
-            '-none-linux-gnueabi', '-uclinux', '-none-eabi',
-            '-gentoo-linux-gnu', '-linux-gnueabi', '-le-linux', '-uclinux']
+            '-none-linux-gnueabi', '-none-linux-gnueabihf', '-uclinux',
+            '-none-eabi', '-gentoo-linux-gnu', '-linux-gnueabi',
+            '-linux-gnueabihf', '-le-linux', '-uclinux']
         for prio in range(len(priority_list)):
             if priority_list[prio] in fname:
                 return PRIORITY_CALC + prio
         return PRIORITY_CALC + prio
 
+    def GetWrapper(self, show_warning=True):
+        """Get toolchain wrapper from the setting file.
+        """
+        value = ''
+        for name, value in bsettings.GetItems('toolchain-wrapper'):
+            if not value:
+                print "Warning: Wrapper not found"
+        if value:
+            value = value + ' '
+
+        return value
+
     def MakeEnvironment(self, full_path):
         """Returns an environment for using the toolchain.
 
         Thie takes the current environment and adds CROSS_COMPILE so that
-        the tool chain will operate correctly.
+        the tool chain will operate correctly. This also disables localized
+        output and possibly unicode encoded output of all build tools by
+        adding LC_ALL=C.
 
         Args:
             full_path: Return the full path in CROSS_COMPILE and don't set
                 PATH
+        Returns:
+            Dict containing the environemnt to use. This is based on the current
+            environment, with changes as needed to CROSS_COMPILE, PATH and
+            LC_ALL.
         """
         env = dict(os.environ)
-        if full_path:
-            env['CROSS_COMPILE'] = os.path.join(self.path, self.cross)
+        wrapper = self.GetWrapper()
+
+        if self.override_toolchain:
+            # We'll use MakeArgs() to provide this
+            pass
+        elif full_path:
+            env['CROSS_COMPILE'] = wrapper + os.path.join(self.path, self.cross)
         else:
-            env['CROSS_COMPILE'] = self.cross
+            env['CROSS_COMPILE'] = wrapper + self.cross
             env['PATH'] = self.path + ':' + env['PATH']
 
+        env['LC_ALL'] = 'C'
+
         return env
+
+    def MakeArgs(self):
+        """Create the 'make' arguments for a toolchain
+
+        This is only used when the toolchain is being overridden. Since the
+        U-Boot Makefile sets CC and HOSTCC explicitly we cannot rely on the
+        environment (and MakeEnvironment()) to override these values. This
+        function returns the arguments to accomplish this.
+
+        Returns:
+            List of arguments to pass to 'make'
+        """
+        if self.override_toolchain:
+            return ['HOSTCC=%s' % self.override_toolchain,
+                    'CC=%s' % self.override_toolchain]
+        return []
 
 
 class Toolchains:
@@ -162,10 +208,11 @@ class Toolchains:
         paths: List of paths to check for toolchains (may contain wildcards)
     """
 
-    def __init__(self):
+    def __init__(self, override_toolchain=None):
         self.toolchains = {}
         self.prefixes = {}
         self.paths = []
+        self.override_toolchain = override_toolchain
         self._make_flags = dict(bsettings.GetItems('make-flags'))
 
     def GetPathList(self, show_warning=True):
@@ -216,7 +263,8 @@ class Toolchains:
             priority: Priority to use for this toolchain
             arch: Toolchain architecture, or None if not known
         """
-        toolchain = Toolchain(fname, test, verbose, priority, arch)
+        toolchain = Toolchain(fname, test, verbose, priority, arch,
+                              self.override_toolchain)
         add_it = toolchain.ok
         if toolchain.arch in self.toolchains:
             add_it = (toolchain.priority <
@@ -412,7 +460,7 @@ class Toolchains:
         """
         arch = command.OutputOneLine('uname', '-m')
         base = 'https://www.kernel.org/pub/tools/crosstool/files/bin'
-        versions = ['4.9.0', '4.6.3', '4.6.2', '4.5.1', '4.2.4']
+        versions = ['7.3.0', '6.4.0', '4.9.4']
         links = []
         for version in versions:
             url = '%s/%s/%s/' % (base, arch, version)
@@ -484,7 +532,8 @@ class Toolchains:
             trailing /
         """
         stdout = command.Output('tar', 'xvfJ', fname, '-C', dest)
-        return stdout.splitlines()[0][:-1]
+        dirs = stdout.splitlines()[1].split('/')[:2]
+        return '/'.join(dirs)
 
     def TestSettingsHasPath(self, path):
         """Check if buildman will find this toolchain
@@ -498,13 +547,14 @@ class Toolchains:
     def ListArchs(self):
         """List architectures with available toolchains to download"""
         host_arch, archives = self.LocateArchUrl('list')
-        re_arch = re.compile('[-a-z0-9.]*_([^-]*)-.*')
+        re_arch = re.compile('[-a-z0-9.]*[-_]([^-]*)-.*')
         arch_set = set()
         for archive in archives:
             # Remove the host architecture from the start
             arch = re_arch.match(archive[len(host_arch):])
             if arch:
-                arch_set.add(arch.group(1))
+                if arch.group(1) != '2.0' and arch.group(1) != '64':
+                    arch_set.add(arch.group(1))
         return sorted(arch_set)
 
     def FetchAndInstall(self, arch):

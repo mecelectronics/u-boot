@@ -1,12 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2015-2016 Stefan Roese <sr@denx.de>
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright (C) 2015-2019 Stefan Roese <sr@denx.de>
  */
 
 #include <common.h>
+#include <console.h>
 #include <i2c.h>
 #include <pci.h>
+#if !defined(CONFIG_SPL_BUILD)
+#include <bootcount.h>
+#endif
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <asm/arch/cpu.h>
@@ -43,6 +46,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define STM_I2C_BUS	1
 #define STM_I2C_ADDR	0x27
 #define REBOOT_DELAY	1000		/* reboot-delay in ms */
+#define ABORT_TIMEOUT	3000		/* 3 seconds reboot abort timeout */
 
 /* DDR3 static configuration */
 static MV_DRAM_MC_INIT ddr3_theadorable[MV_MAX_DDR3_STATIC_SIZE] = {
@@ -115,15 +119,28 @@ MV_BIN_SERDES_CFG theadorable_serdes_cfg[] = {
 	},
 };
 
+/*
+ * Define a board-specific detection pulse-width array for the SerDes PCIe
+ * interfaces. If not defined in the board code, the default of currently 2
+ * is used. Values from 0...3 are possible (2 bits).
+ */
+u8 serdes_pex_pulse_width[4] = { 0, 2, 2, 2 };
+
 MV_DRAM_MODES *ddr3_get_static_ddr_mode(void)
 {
 	/* Only one mode supported for this board */
 	return &board_ddr_modes[0];
 }
 
-MV_BIN_SERDES_CFG *board_serdes_cfg_get(u8 pex_mode)
+MV_BIN_SERDES_CFG *board_serdes_cfg_get(void)
 {
 	return &theadorable_serdes_cfg[0];
+}
+
+u8 board_sat_r_get(u8 dev_num, u8 reg)
+{
+	/* Bit x enables PCI 2.0 link capabilities instead of PCI 1.x */
+	return 0xe;	/* PEX port 0 is PCIe Gen1, PEX port 1..3 PCIe Gen2 */
 }
 
 int board_early_init_f(void)
@@ -206,23 +223,7 @@ int board_eth_init(bd_t *bis)
 }
 #endif
 
-int board_video_init(void)
-{
-	struct mvebu_lcd_info lcd_info;
-
-	/* Reserved memory area via CONFIG_SYS_MEM_TOP_HIDE */
-	lcd_info.fb_base	= gd->ram_size;
-	lcd_info.x_res		= 240;
-	lcd_info.x_fp		= 1;
-	lcd_info.x_bp		= 45;
-	lcd_info.y_res		= 320;
-	lcd_info.y_fp		= 1;
-	lcd_info.y_bp		= 3;
-
-	return mvebu_lcd_register_init(&lcd_info);
-}
-
-#ifdef CONFIG_BOARD_LATE_INIT
+#if !defined(CONFIG_SPL_BUILD) && defined(CONFIG_BOARD_LATE_INIT)
 int board_late_init(void)
 {
 	pci_dev_t bdf;
@@ -236,6 +237,7 @@ int board_late_init(void)
 	 */
 	bdf = pci_find_device(PCI_VENDOR_ID_PLX, 0x8619, 0);
 	if (bdf == -1) {
+		unsigned long start_time = get_timer(0);
 		u8 i2c_buf[8];
 		int ret;
 
@@ -243,6 +245,28 @@ int board_late_init(void)
 		bootcount = bootcount_load();
 		printf("Failed to find PLX PEX-switch (bootcount=%ld)\n",
 		       bootcount);
+
+		/*
+		 * The user can exit this boot-loop in the error case by
+		 * hitting Ctrl-C. So wait some time for this key here.
+		 */
+		printf("Continue booting with Ctrl-C, otherwise rebooting\n");
+		do {
+			/* Handle control-c and timeouts */
+			if (ctrlc()) {
+				printf("PEX error boot-loop aborted!\n");
+				return 0;
+			}
+		} while (get_timer(start_time) < ABORT_TIMEOUT);
+
+
+		/*
+		 * At this stage the bootcounter has not been incremented
+		 * yet. We need to do this manually here to get an actually
+		 * working bootcounter in this error case.
+		 */
+		bootcount_inc();
+
 		if (bootcount > PEX_SWITCH_NOT_FOUNT_LIMIT) {
 			printf("Issuing power-switch via uC!\n");
 
@@ -280,4 +304,45 @@ int board_late_init(void)
 
 	return 0;
 }
+#endif
+
+#if !defined(CONFIG_SPL_BUILD) && defined(CONFIG_PCI)
+int do_pcie_test(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	pci_dev_t bdf;
+	u16 ven_id, dev_id;
+
+	if (argc != 3)
+		return cmd_usage(cmdtp);
+
+	ven_id = simple_strtoul(argv[1], NULL, 16);
+	dev_id = simple_strtoul(argv[2], NULL, 16);
+
+	printf("Checking for PCIe device: VendorID 0x%04x, DeviceId 0x%04x\n",
+	       ven_id, dev_id);
+
+	/*
+	 * Check if the PCIe device is detected (somtimes its not available
+	 * on the PCIe bus)
+	 */
+	bdf = pci_find_device(ven_id, dev_id, 0);
+	if (bdf == -1) {
+		/* PCIe device not found! */
+		printf("Failed to find PCIe device\n");
+	} else {
+		/* PCIe device found! */
+		printf("PCIe device found, resetting board...\n");
+
+		/* default handling: SOFT reset */
+		do_reset(NULL, 0, 0, NULL);
+	}
+
+	return 0;
+}
+
+U_BOOT_CMD(
+	pcie,   3,   0,     do_pcie_test,
+	"Test for presence of a PCIe device",
+	"<VendorID> <DeviceID>"
+);
 #endif

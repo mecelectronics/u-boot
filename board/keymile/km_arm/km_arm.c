@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2009
  * Marvell Semiconductor <www.marvell.com>
@@ -8,11 +9,10 @@
  *
  * (C) Copyright 2010
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <env.h>
 #include <i2c.h>
 #include <nand.h>
 #include <netdev.h>
@@ -75,10 +75,6 @@ static const u32 kwmpp_config[] = {
 #if defined(CONFIG_SYS_I2C_SOFT)
 	MPP8_GPIO,		/* SDA */
 	MPP9_GPIO,		/* SCL */
-#endif
-#if defined(CONFIG_HARD_I2C)
-	MPP8_TW_SDA,
-	MPP9_TW_SCK,
 #endif
 	MPP10_UART0_TXD,
 	MPP11_UART0_RXD,
@@ -197,7 +193,7 @@ static void set_bootcount_addr(void)
 	unsigned int bootcountaddr;
 	bootcountaddr = gd->ram_size - BOOTCOUNT_ADDR;
 	sprintf((char *)buf, "0x%x", bootcountaddr);
-	setenv("bootcountaddr", (char *)buf);
+	env_set("bootcountaddr", (char *)buf);
 }
 
 int misc_init_r(void)
@@ -205,7 +201,7 @@ int misc_init_r(void)
 #if defined(CONFIG_KM_MGCOGE3UN)
 	char *wait_for_ne;
 	u8 dip_switch = kw_gpio_get_value(KM_FLASH_ERASE_ENABLE);
-	wait_for_ne = getenv("waitforne");
+	wait_for_ne = env_get("waitforne");
 
 	if ((wait_for_ne != NULL) && (dip_switch == 0)) {
 		if (strcmp(wait_for_ne, "true") == 0) {
@@ -303,7 +299,7 @@ int board_late_init(void)
 	if (dip_switch != 0) {
 		/* start bootloader */
 		puts("DIP:   Enabled\n");
-		setenv("actual_bank", "0");
+		env_set("actual_bank", "0");
 	}
 #endif
 
@@ -315,16 +311,35 @@ int board_late_init(void)
 	return 0;
 }
 
-int board_spi_claim_bus(struct spi_slave *slave)
+static const u32 spi_mpp_config[] = {
+	MPP1_SPI_MOSI,
+	MPP2_SPI_SCK,
+	MPP3_SPI_MISO,
+	0
+};
+
+static u32 spi_mpp_backup[4];
+
+int mvebu_board_spi_claim_bus(struct udevice *dev)
 {
+	spi_mpp_backup[3] = 0;
+
+	/* set new spi mpp config and save current one */
+	kirkwood_mpp_conf(spi_mpp_config, spi_mpp_backup);
+
 	kw_gpio_set_value(KM_FLASH_GPIO_PIN, 0);
 
 	return 0;
 }
 
-void board_spi_release_bus(struct spi_slave *slave)
+int mvebu_board_spi_release_bus(struct udevice *dev)
 {
+	/* restore saved mpp config */
+	kirkwood_mpp_conf(spi_mpp_backup, NULL);
+
 	kw_gpio_set_value(KM_FLASH_GPIO_PIN, 1);
+
+	return 0;
 }
 
 #if (defined(CONFIG_KM_PIGGY4_88E6061))

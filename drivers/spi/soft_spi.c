@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2014 Google, Inc
  *
@@ -6,8 +7,6 @@
  *
  * Influenced by code from:
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -202,7 +201,7 @@ static int soft_spi_ofdata_to_platdata(struct udevice *dev)
 {
 	struct soft_spi_platdata *plat = dev->platdata;
 	const void *blob = gd->fdt_blob;
-	int node = dev->of_offset;
+	int node = dev_of_offset(dev);
 
 	plat->spi_delay_us = fdtdec_get_int(blob, node, "spi-delay-us", 0);
 
@@ -216,8 +215,8 @@ static int soft_spi_probe(struct udevice *dev)
 	int cs_flags, clk_flags;
 	int ret;
 
-	cs_flags = (slave->mode & SPI_CS_HIGH) ? 0 : GPIOD_ACTIVE_LOW;
-	clk_flags = (slave->mode & SPI_CPOL) ? GPIOD_ACTIVE_LOW : 0;
+	cs_flags = (slave && slave->mode & SPI_CS_HIGH) ? 0 : GPIOD_ACTIVE_LOW;
+	clk_flags = (slave && slave->mode & SPI_CPOL) ? GPIOD_ACTIVE_LOW : 0;
 
 	if (gpio_request_by_name(dev, "cs-gpios", 0, &plat->cs,
 				 GPIOD_IS_OUT | cs_flags) ||

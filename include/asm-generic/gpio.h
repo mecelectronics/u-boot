@@ -1,11 +1,15 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (c) 2011 The Chromium OS Authors.
  * Copyright (c) 2011, NVIDIA Corp. All rights reserved.
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _ASM_GENERIC_GPIO_H_
 #define _ASM_GENERIC_GPIO_H_
+
+#include <dm/ofnode.h>
+
+struct ofnode_phandle_args;
 
 /*
  * Generic GPIO API for U-Boot
@@ -211,10 +215,9 @@ struct fdtdec_phandle_args;
  *
  * This routine sets the offset field to args[0] and the flags field to
  * GPIOD_ACTIVE_LOW if the GPIO_ACTIVE_LOW flag is present in args[1].
- *
  */
 int gpio_xlate_offs_flags(struct udevice *dev, struct gpio_desc *desc,
-			  struct fdtdec_phandle_args *args);
+			  struct ofnode_phandle_args *args);
 
 /**
  * struct struct dm_gpio_ops - Driver model GPIO operations
@@ -286,7 +289,7 @@ struct dm_gpio_ops {
 	 * @return 0 if OK, -ve on error
 	 */
 	int (*xlate)(struct udevice *dev, struct gpio_desc *desc,
-		     struct fdtdec_phandle_args *args);
+		     struct ofnode_phandle_args *args);
 };
 
 /**
@@ -344,6 +347,23 @@ const char *gpio_get_bank_info(struct udevice *dev, int *offset_count);
  * @return 0 if OK, -ve on error
  */
 int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc);
+
+/**
+ * gpio_hog_lookup_name() - Look up a named GPIO and return the gpio descr.
+ *
+ * @name:	Name to look up
+ * @desc:	Returns GPIO description, on success, else NULL
+ * @return:	Returns 0 if OK, else -ENODEV
+ */
+int gpio_hog_lookup_name(const char *name, struct gpio_desc **desc);
+
+/**
+ * gpio_hog_probe_all() - probe all gpio devices with
+ * gpio-hog subnodes.
+ *
+ * @return:	Returns return value from device_probe()
+ */
+int gpio_hog_probe_all(void);
 
 /**
  * gpio_lookup_name - Look up a GPIO name and return its details
@@ -487,9 +507,8 @@ int gpio_get_list_count(struct udevice *dev, const char *list_name);
  * This is a version of gpio_request_list_by_name() that does not use a
  * device. Avoid it unless the caller is not yet using driver model
  */
-int gpio_request_by_name_nodev(const void *blob, int node,
-			       const char *list_name,
-			       int index, struct gpio_desc *desc, int flags);
+int gpio_request_by_name_nodev(ofnode node, const char *list_name, int index,
+			       struct gpio_desc *desc, int flags);
 
 /**
  * gpio_request_list_by_name_nodev() - request GPIOs without a device
@@ -497,10 +516,26 @@ int gpio_request_by_name_nodev(const void *blob, int node,
  * This is a version of gpio_request_list_by_name() that does not use a
  * device. Avoid it unless the caller is not yet using driver model
  */
-int gpio_request_list_by_name_nodev(const void *blob, int node,
-				    const char *list_name,
+int gpio_request_list_by_name_nodev(ofnode node, const char *list_name,
 				    struct gpio_desc *desc_list, int max_count,
 				    int flags);
+
+/**
+ * gpio_dev_request_index() - request single GPIO from gpio device
+ *
+ * @dev:	GPIO device
+ * @nodename:	Name of node for which gpio gets requested, used
+ *		for the gpio label name
+ * @list_name:	Name of GPIO list (e.g. "board-id-gpios")
+ * @index:	Index number of the GPIO in that list use request (0=first)
+ * @flags:	GPIOD_* flags
+ * @dtflags:	GPIO flags read from DT defined see GPIOD_*
+ * @desc:	returns GPIO descriptor filled from this function
+ * @return:	return value from gpio_request_tail()
+ */
+int gpio_dev_request_index(struct udevice *dev, const char *nodename,
+			   char *list_name, int index, int flags,
+			   int dtflags, struct gpio_desc *desc);
 
 /**
  * dm_gpio_free() - Free a single GPIO

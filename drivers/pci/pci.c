@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2001 Sysgo Real-Time Solutions, GmbH <www.elinos.com>
  * Andreas Heppel <aheppel@sysgo.de>
  *
  * (C) Copyright 2002, 2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -18,6 +17,7 @@
 #include <common.h>
 
 #include <command.h>
+#include <env.h>
 #include <errno.h>
 #include <asm/processor.h>
 #include <asm/io.h>
@@ -185,11 +185,8 @@ pci_dev_t pci_find_devices(struct pci_device_id *ids, int index)
 	return -1;
 }
 
-int pci_hose_config_device(struct pci_controller *hose,
-			   pci_dev_t dev,
-			   unsigned long io,
-			   pci_addr_t mem,
-			   unsigned long command)
+static int pci_hose_config_device(struct pci_controller *hose, pci_dev_t dev,
+				  ulong io, pci_addr_t mem, ulong command)
 {
 	u32 bar_response;
 	unsigned int old_command;
@@ -427,7 +424,7 @@ int pci_hose_scan(struct pci_controller *hose)
 
 	if (!gd->pcidelay_done) {
 		/* wait "pcidelay" ms (if defined)... */
-		s = getenv("pcidelay");
+		s = env_get("pcidelay");
 		if (s) {
 			int val = simple_strtoul(s, NULL, 10);
 			for (i = 0; i < val; i++)
@@ -459,7 +456,7 @@ void pci_init(void)
 	hose_head = NULL;
 
 	/* allow env to disable pci init/enum */
-	if (getenv("pcidisable") != NULL)
+	if (env_get("pcidisable") != NULL)
 		return;
 
 	/* now call board specific pci_init()... */

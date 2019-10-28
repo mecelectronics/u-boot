@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <asm/io.h>
+#include <env.h>
 #include <fsl_qe.h>	/* For struct qe_firmware */
 
 #ifdef CONFIG_SYS_DPAA_FMAN
@@ -36,7 +36,7 @@ void fdt_fixup_fman_firmware(void *blob)
 		return;
 
 	/* If the environment variable is not set, then exit silently */
-	p = getenv("fman_ucode");
+	p = env_get("fman_ucode");
 	if (!p)
 		return;
 

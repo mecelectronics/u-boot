@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2016 Rockchip Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -13,9 +12,9 @@
 #include <syscon.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/lvds_rk3288.h>
-#include <asm/arch/grf_rk3288.h>
+#include <asm/arch-rockchip/clock.h>
+#include <asm/arch-rockchip/lvds_rk3288.h>
+#include <asm/arch-rockchip/grf_rk3288.h>
 #include <dt-bindings/clock/rk3288-cru.h>
 #include <dt-bindings/video/rk3288.h>
 
@@ -162,7 +161,7 @@ int rk_lvds_enable(struct udevice *dev, int panel_bpp,
 int rk_lvds_read_timing(struct udevice *dev, struct display_timing *timing)
 {
 	if (fdtdec_decode_display_timing
-	    (gd->fdt_blob, dev->of_offset, 0, timing)) {
+	    (gd->fdt_blob, dev_of_offset(dev), 0, timing)) {
 		debug("%s: Failed to decode display timing\n", __func__);
 		return -EINVAL;
 	}
@@ -174,9 +173,9 @@ static int rk_lvds_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rk_lvds_priv *priv = dev_get_priv(dev);
 	const void *blob = gd->fdt_blob;
-	int node = dev->of_offset;
+	int node = dev_of_offset(dev);
 	int ret;
-	priv->regs = (void *)dev_get_addr(dev);
+	priv->regs = (void *)devfdt_get_addr(dev);
 	priv->grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
 
 	ret = fdtdec_get_int(blob, node, "rockchip,output", -1);

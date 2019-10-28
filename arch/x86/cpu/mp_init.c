@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2015 Google, Inc
- *
- * SPDX-License-Identifier:	GPL-2.0+
  *
  * Based on code from the coreboot file of the same name
  */
@@ -248,7 +247,8 @@ static int load_sipi_vector(atomic_t **ap_countp, int num_cpus)
 	if (!stack)
 		return -ENOMEM;
 	params->stack_top = (u32)(stack + size);
-#if !defined(CONFIG_QEMU) && !defined(CONFIG_HAVE_FSP)
+#if !defined(CONFIG_QEMU) && !defined(CONFIG_HAVE_FSP) && \
+	!defined(CONFIG_INTEL_MID)
 	params->microcode_ptr = ucode_base;
 	debug("Microcode at %x\n", params->microcode_ptr);
 #endif
@@ -322,7 +322,7 @@ static int start_aps(int ap_count, atomic_t *num_aps)
 	if (sipi_vector > max_vector_loc) {
 		printf("SIPI vector too large! 0x%08x\n",
 		       sipi_vector);
-		return -1;
+		return -ENOSPC;
 	}
 
 	debug("Attempting to start %d APs\n", ap_count);
@@ -364,7 +364,7 @@ static int start_aps(int ap_count, atomic_t *num_aps)
 	if (wait_for_aps(num_aps, ap_count, 10000, 50)) {
 		debug("Not all APs checked in: %d/%d\n",
 		      atomic_read(num_aps), ap_count);
-		return -1;
+		return -EIO;
 	}
 
 	return 0;
@@ -387,7 +387,7 @@ static int bsp_do_flight_plan(struct udevice *cpu, struct mp_params *mp_params)
 			if (wait_for_aps(&rec->cpus_entered, num_aps,
 					 timeout_us, step_us)) {
 				debug("MP record %d timeout\n", i);
-				ret = -1;
+				ret = -ETIMEDOUT;
 			}
 		}
 
@@ -508,7 +508,7 @@ int mp_init(struct mp_params *p)
 
 	if (p == NULL || p->flight_plan == NULL || p->num_records < 1) {
 		printf("Invalid MP parameters\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	num_cpus = cpu_get_count(cpu);
@@ -531,7 +531,7 @@ int mp_init(struct mp_params *p)
 	/* Load the SIPI vector */
 	ret = load_sipi_vector(&ap_count, num_cpus);
 	if (ap_count == NULL)
-		return -1;
+		return -ENOENT;
 
 	/*
 	 * Make sure SIPI data hits RAM so the APs that come up will see
@@ -568,7 +568,8 @@ int mp_init_cpu(struct udevice *cpu, void *unused)
 	 * seq num in the uclass_resolve_seq() during device_probe(). To avoid
 	 * this, set req_seq to the reg number in the device tree in advance.
 	 */
-	cpu->req_seq = fdtdec_get_int(gd->fdt_blob, cpu->of_offset, "reg", -1);
+	cpu->req_seq = fdtdec_get_int(gd->fdt_blob, dev_of_offset(cpu), "reg",
+				      -1);
 	plat->ucode_version = microcode_read_rev();
 	plat->device_id = gd->arch.x86_device;
 

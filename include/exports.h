@@ -3,8 +3,8 @@
 
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_PHY_AQUANTIA
-#include <miiphy.h>
-#include <phy.h>
+#include <env.h>
+#include <phy_interface.h>
 #endif
 
 struct spi_slave;
@@ -27,14 +27,13 @@ unsigned long get_timer(unsigned long);
 int vprintf(const char *, va_list);
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 int strict_strtoul(const char *cp, unsigned int base, unsigned long *res);
-char *getenv (const char *name);
-int setenv (const char *varname, const char *varvalue);
+char *env_get(const char *name);
+int env_set(const char *varname, const char *value);
 long simple_strtol(const char *cp, char **endp, unsigned int base);
 int strcmp(const char *cs, const char *ct);
 unsigned long ustrtoul(const char *cp, char **endp, unsigned int base);
 unsigned long long ustrtoull(const char *cp, char **endp, unsigned int base);
-#if defined(CONFIG_CMD_I2C) && \
-		(!defined(CONFIG_DM_I2C) || defined(CONFIG_DM_I2C_COMPAT))
+#if defined(CONFIG_CMD_I2C) && !defined(CONFIG_DM_I2C)
 int i2c_write (uchar, uint, int , uchar* , int);
 int i2c_read (uchar, uint, int , uchar* , int);
 #endif
@@ -57,7 +56,7 @@ struct jt_funcs {
 };
 
 
-#define XF_VERSION	8
+#define XF_VERSION	9
 
 #if defined(CONFIG_X86)
 extern gd_t *global_data;

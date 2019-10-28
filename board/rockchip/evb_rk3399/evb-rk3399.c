@@ -1,27 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2016 Rockchip Electronics Co., Ltd
- *
- * SPDX-License-Identifier:     GPL-2.0+
  */
+
 #include <common.h>
-#include <asm/armv8/mmu.h>
+#include <dm.h>
+#include <asm/arch-rockchip/periph.h>
+#include <power/regulator.h>
 
-DECLARE_GLOBAL_DATA_PTR;
-
-int board_init(void)
+#ifndef CONFIG_SPL_BUILD
+int board_early_init_f(void)
 {
+	struct udevice *regulator;
+	int ret;
+
+	ret = regulator_get_by_platname("vcc5v0_host", &regulator);
+	if (ret) {
+		debug("%s vcc5v0_host init fail! ret %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = regulator_set_enable(regulator, true);
+	if (ret)
+		debug("%s vcc5v0-host-en set fail! ret %d\n", __func__, ret);
+
+out:
 	return 0;
 }
-
-int dram_init(void)
-{
-	gd->ram_size = 0x80000000;
-	return 0;
-}
-
-void dram_init_banksize(void)
-{
-	/* Reserve 0x200000 for ATF bl31 */
-	gd->bd->bi_dram[0].start = 0x200000;
-	gd->bd->bi_dram[0].size = 0x80000000;
-}
+#endif

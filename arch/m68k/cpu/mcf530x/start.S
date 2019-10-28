@@ -1,18 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2015  Angelo Dureghello <angelo@sysam.it>
  * Based on code from Bernhard Kuhn <bkuhn@metrowerks.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <asm-offsets.h>
 #include <config.h>
 #include "version.h"
 #include <asm/cache.h>
-
-#ifndef	 CONFIG_IDENT_STRING
-#define	 CONFIG_IDENT_STRING ""
-#endif
 
 #define _START	_start
 #define _FAULT	_fault

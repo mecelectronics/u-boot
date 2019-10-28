@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
 #include <fsl_validate.h>
 
 int do_esbc_halt(cmd_tbl_t *cmdtp, int flag, int argc,
@@ -23,6 +23,7 @@ loop:
 	return 0;
 }
 
+#ifndef CONFIG_SPL_BUILD
 static int do_esbc_validate(cmd_tbl_t *cmdtp, int flag, int argc,
 				char * const argv[])
 {
@@ -52,7 +53,7 @@ static int do_esbc_validate(cmd_tbl_t *cmdtp, int flag, int argc,
 	 * to continue U-Boot
 	 */
 	sprintf(buf, "%lx", img_addr);
-	setenv("img_addr", buf);
+	env_set("img_addr", buf);
 
 	if (ret)
 		return 1;
@@ -82,3 +83,4 @@ U_BOOT_CMD(
 	"Put the core in spin loop (Secure Boot Only)",
 	""
 );
+#endif

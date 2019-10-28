@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
  * Author: Wang Dongsheng <dongsheng.wang@freescale.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <config.h>
@@ -29,6 +28,7 @@
 #define PSCI_FN_AFFINITY_INFO_FEATURE_MASK	0x0
 #define PSCI_FN_SYSTEM_OFF_FEATURE_MASK		0x0
 #define PSCI_FN_SYSTEM_RESET_FEATURE_MASK	0x0
+#define PSCI_FN_SYSTEM_SUSPEND_FEATURE_MASK	0x0
 
 	.pushsection ._secure.text, "ax"
 
@@ -36,7 +36,7 @@
 
 	.align	5
 
-#define	ONE_MS		(GENERIC_TIMER_CLK / 1000)
+#define	ONE_MS		(COUNTER_FREQUENCY / 1000)
 #define	RESET_WAIT	(30 * ONE_MS)
 
 .globl	psci_version
@@ -61,6 +61,8 @@ _ls102x_psci_supported_table:
 	.word	PSCI_FN_SYSTEM_OFF_FEATURE_MASK
 	.word	ARM_PSCI_0_2_FN_SYSTEM_RESET
 	.word	PSCI_FN_SYSTEM_RESET_FEATURE_MASK
+	.word	ARM_PSCI_1_0_FN_SYSTEM_SUSPEND
+	.word	PSCI_FN_SYSTEM_SUSPEND_FEATURE_MASK
 	.word	0
 	.word	ARM_PSCI_RET_NI
 
@@ -122,7 +124,8 @@ psci_cpu_on:
 
 	mov	r0, r4
 	mov	r1, r2
-	bl	psci_save_target_pc
+	mov	r2, r3
+	bl	psci_save
 	mov	r1, r4
 
 	@ Get DCFG base address
@@ -242,5 +245,13 @@ psci_system_reset:
 
 1:	wfi
 	b	1b
+
+.globl	psci_system_suspend
+psci_system_suspend:
+	push	{lr}
+
+	bl	ls1_system_suspend
+
+	pop	{pc}
 
 	.popsection

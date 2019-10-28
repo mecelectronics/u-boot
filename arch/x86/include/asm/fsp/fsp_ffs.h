@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: Intel */
 /*
  * Copyright (C) 2013, Intel Corporation
  * Copyright (C) 2014, Bin Meng <bmeng.cn@gmail.com>
- *
- * SPDX-License-Identifier:	Intel
  */
 
 #ifndef __FSP_FFS_H__
@@ -46,7 +45,7 @@ struct __packed ffs_file_header {
 	 * This GUID is the file name.
 	 * It is used to uniquely identify the file.
 	 */
-	struct efi_guid		name;
+	efi_guid_t		name;
 	/* Used to verify the integrity of the file */
 	union ffs_integrity	integrity;
 	/* Identifies the type of file */
@@ -69,7 +68,7 @@ struct __packed ffs_file_header2 {
 	 * Name in any given firmware volume, except if the file type is
 	 * EFI_FV_FILE_TYPE_FFS_PAD.
 	 */
-	struct efi_guid		name;
+	efi_guid_t		name;
 	/* Used to verify the integrity of the file */
 	union ffs_integrity	integrity;
 	/* Identifies the type of file */

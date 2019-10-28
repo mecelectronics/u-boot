@@ -1,13 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <bootretry.h>
 #include <cli.h>
+#include <env.h>
 #include <errno.h>
 #include <watchdog.h>
 
@@ -23,7 +23,7 @@ static int      retry_time = -1; /* -1 so can call readline before main_loop */
  */
 void bootretry_init_cmd_timeout(void)
 {
-	char *s = getenv("bootretry");
+	char *s = env_get("bootretry");
 
 	if (s != NULL)
 		retry_time = (int)simple_strtol(s, NULL, 10);

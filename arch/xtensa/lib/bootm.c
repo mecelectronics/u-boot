@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2008 - 2013 Tensilica Inc.
  * (C) Copyright 2014 Cadence Design Systems Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
 #include <u-boot/zlib.h>
 #include <asm/byteorder.h>
 #include <asm/addrspace.h>
@@ -136,7 +136,7 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 {
 	struct bp_tag *params, *params_start;
 	ulong initrd_start, initrd_end;
-	char *commandline = getenv("bootargs");
+	char *commandline = env_get("bootargs");
 
 	if (!(flag & (BOOTM_STATE_OS_GO | BOOTM_STATE_OS_FAKE_GO)))
 		return 0;

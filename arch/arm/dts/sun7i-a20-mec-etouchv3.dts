@@ -1,5 +1,4 @@
 /dts-v1/; 
-
 #include "sun7i-a20.dtsi"
 #include "sunxi-common-regulators.dtsi"
 
@@ -18,19 +17,9 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
-        reg_axp_ipsout: axp_ipsout {
-                compatible = "regulator-fixed";
-                regulator-name = "axp-ipsout";
-                regulator-min-microvolt = <5000000>;
-                regulator-max-microvolt = <5000000>;
-                regulator-always-on;
-        };
-
 };
 
 &i2c0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c0_pins_a>;
 	status = "okay";
 
 	axp209: pmic@34 {
@@ -42,55 +31,10 @@
                 interrupt-controller;
                 #interrupt-cells = <1>;
 
-                acin-supply = <&reg_axp_ipsout>;
-                vin2-supply = <&reg_axp_ipsout>;
-                vin3-supply = <&reg_axp_ipsout>;
-                ldo24in-supply = <&reg_axp_ipsout>;
-                ldo3in-supply = <&reg_axp_ipsout>;
-
-                regulators {
-                        vdd_rtc: ldo1 {
-                                regulator-min-microvolt = <1300000>;
-                                regulator-max-microvolt = <1300000>;
-                                regulator-always-on;
-                        };
-
-                        avcc: ldo2 {
-                                regulator-min-microvolt = <1800000>;
-                                regulator-max-microvolt = <3300000>;
-                                regulator-always-on;
-                        };
-
-                        vcc_csi0: ldo3 {
-                                regulator-min-microvolt = <700000>;
-                                regulator-max-microvolt = <3500000>;
-                                regulator-always-on;
-                        };
-
-                        vcc_csi1: ldo4 {
-                                regulator-min-microvolt = <1250000>;
-                                regulator-max-microvolt = <3300000>;
-                                regulator-always-on;
-                        };
-
-                        vdd_cpu: dcdc2 {
-                                regulator-min-microvolt = <700000>;
-                                regulator-max-microvolt = <2275000>;
-                                regulator-always-on;
-                        };
-
-                        vdd_int: dcdc3 {
-                                regulator-min-microvolt = <700000>;
-                                regulator-max-microvolt = <3500000>;
-                                regulator-always-on;
-                        };
-                };
         };
 };
 
 &i2c1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_pins_a>;
 	status = "okay";
 
 	eeprom: eeprom@50 {
@@ -101,17 +45,13 @@
 };
 
 &mmc0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin_reference_design>;
 	vmmc-supply = <&reg_vcc3v3>;
 	bus-width = <4>;
-	cd-inverted;
+	cd-gpios = <&pio 7 1 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
 &mmc2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin_reference_design>;
 	vmmc-supply = <&reg_vcc3v3>;
 	bus-width = <4>;
 	cd-inverted;
@@ -124,8 +64,6 @@
 };
 
 &uart0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pins_a>;
 	status = "okay";
 };
 /*
