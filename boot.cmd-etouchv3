@@ -1,0 +1,129 @@
+setenv sourceDevType mmc
+setenv sourceDevArg 0:1
+
+setenv overlayNameEepromPos 0x0
+
+setenv bootdelay 5
+setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p1 rootwait panic=10 sysfs.deprecated=0 rootfstype=ext4 ro
+
+setenv bootCmd "bootm"
+setenv kernelName "uImage"
+setenv kernelAddr  0x42000000
+
+# not sure where else is safe to write
+# note that the kernel has to be loaded after finishing device tree setup
+setenv workAddrRam ${kernelAddr}
+
+setenv dtName "devicetree.dtb"
+setenv dtBaseAddr 0x43000000
+setenv dtSecondAddr 0x40008000
+setenv dtOverlayAddr ${workAddrRam}
+
+setenv initRdName ""
+setenv initRdAddr 0
+
+# load first part of the env import command
+# overlay.prefix: "overlay=AAAA\n\0"
+if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "overlay.prefix"; then
+    # load the name of the hardware overlay
+    # 8 ist length of the "overlay=" from overlay.prefix
+    # 3 is the size of the name in eeprom
+    setexpr workAddrRamData ${workAddrRam} + 8
+    eeprom read 1 0x50 ${workAddrRamData} ${overlayNameEepromPos} 3
+    env import -t ${workAddrRam}
+    
+    echo "Using hardware overlay: ${overlay}"
+fi
+
+# load uEnv.txt so it can override the default values (bootargs, overlay ...)
+# we need to load uEnv.txt after overlay= (to be able to overwrite it in uEnv.txt)
+# and before the kernel/devicetree (also to be able to overwrite it in uEnv.txt)
+echo "Loading uEnv.txt..."
+if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "uEnv.txt"; then
+    env import -t ${workAddrRam}
+else
+    echo "Could not find uEnv.txt"
+fi
+
+if env exists addBootArgs; then
+    setenv bootargs "${bootargs} ${addBootArgs}"
+	echo "New bootargs: ${bootargs}"
+fi
+
+echo "Loading device tree: ${dtName}"
+# load device tree
+if load ${sourceDevType} ${sourceDevArg} ${dtBaseAddr} ${dtName}; then
+    fdt addr ${dtBaseAddr}
+else
+    echo "FAILED TO LOAD DEVICE TREE: ${dtName}"
+fi
+
+# load hardware dtbo
+if env exists overlay; then
+	echo "Loading: ${overlay}.dtbo"
+    if load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlay}.dtbo"; then
+		# we need to apply the dtbo on a copy of the dtb
+		# because it breaks the dtb if it fails to apply
+		fdt move ${dtBaseAddr} ${dtSecondAddr}
+		# $filesize is automatic
+		fdt resize $filesize
+        if fdt apply ${dtOverlayAddr}; then
+			fdt move ${dtSecondAddr} ${dtBaseAddr}
+		else
+			echo "FAILED TO APPLY DTBO: ${overlay}.dtbo"
+		fi
+    else
+        echo "${overlay}.dtbo does not exist, skipping."
+    fi
+
+	echo "Loading: ${overlay}.scr"
+    # load additional script needed by hardware 
+    if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlay}.scr"; then
+        source ${workAddrRam}
+    else
+        echo "${overlay}.scr does not exist, skipping."
+    fi
+fi
+
+# load any additional dtbo/scripts listed in overlayList in uEnv.txt 
+if env exists overlayList; then
+	for ovl in ${overlayList}; do
+		echo "Loading: ${ovl}.dtbo"
+		if load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${ovl}.dtbo"; then
+            fdt move ${dtBaseAddr} ${dtSecondAddr}
+			fdt resize $filesize
+			if fdt apply ${dtOverlayAddr}; then
+				fdt move ${dtSecondAddr} ${dtBaseAddr}
+			else
+				echo "FAILED TO APPLY DTBO: ${ovl}.dtbo"
+			fi
+        else
+            echo "${ovl}.dtbo does not exist, skipping."
+        fi
+		
+		echo "Loading: ${ovl}.scr"
+        if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${ovl}.scr"; then
+            source ${workAddrRam}
+        else
+            echo "${ovl}.scr does not exist, skipping."
+        fi
+	done
+fi
+
+# load kernel
+# the kernel has to be loaded after finishing device tree setups because we're
+# using the kernel address as our workspace
+if load ${sourceDevType} ${sourceDevArg} ${kernelAddr} ${kernelName}; then
+    echo "Booting Image \"${kernelName}\" with arguments: ${bootargs}"
+else
+    echo "FAILED TO LOAD KERNEL: ${kernelName}"
+fi
+
+# bootm ${kernelAddr} - ${dtBaseAddr}
+
+if test "${initRdName}" = ""; then
+    ${bootCmd} ${kernelAddr} - ${dtBaseAddr}
+else
+    load ${sourceDevType} ${sourceDevArg} ${initRdAddr} ${initRdName}
+    ${bootCmd} ${kernelAddr} ${initRdAddr} ${dtBaseAddr}
+fi
