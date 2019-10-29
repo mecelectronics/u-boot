@@ -3,7 +3,7 @@ boot.cmd-Magie:
 Das neue boot.cmd sollte im allgemeinen so funktionieren wie das alte.
 Falls jedoch die uEnv.txt oder die overlay.prefix Datei in /boot (bzw. auf der ersten Partition!) vorhanden ist, dann:
 * overlay.prefix: Falls diese Datei vorhanden ist (drinnen muss "overlay=AAAA\n\0" stehen!), dann wird
-  - 4 bytes aus dem EEPROM ausgelesen und ersetzen das "AAAA" => overlay=d350
+  - 4 bytes aus dem EEPROM ausgelesen und ersetzen das "AAAA" => z.B. overlay=d350
   - Geschaut ob es ein dtbo oder ein scr mit diesem Namen gibt (also ${overlay}.dtbo, z.B. AAAA.dtbo) und wenn ja, diese geladen
 * uEnv.txt: Die Datei kann alle Environment-Variablen aendern. Format: variable=wert Beispiele:
   - initRdName/initRdAddr: eine initrd verwenden
