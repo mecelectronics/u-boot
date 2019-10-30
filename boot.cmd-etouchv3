@@ -1,10 +1,13 @@
 setenv sourceDevType mmc
-setenv sourceDevArg 0:1
+setenv sourceDevArg ${devnum}:1
 
-setenv overlayNameEepromPos 0x0
+setenv hwoNameEepromPos 0x0
+setenv hwoNameEepromBusNr 1
+setenv hwoNameEepromI2cAddr 0x50
+setenv hwoNameEepromLength 4
 
 setenv bootdelay 5
-setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p1 rootwait panic=10 sysfs.deprecated=0 rootfstype=ext4 ro
+setenv bootargs console=ttyS0,115200 root=/dev/mmcblk${devnum}p1 rootwait panic=10 sysfs.deprecated=0 ro
 
 setenv bootCmd "bootm"
 setenv kernelName "uImage"
@@ -22,19 +25,6 @@ setenv dtOverlayAddr ${workAddrRam}
 setenv initRdName ""
 setenv initRdAddr 0
 
-# load first part of the env import command
-# overlay.prefix: "overlay=AAAA\n\0"
-if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "overlay.prefix"; then
-    # load the name of the hardware overlay
-    # 8 ist length of the "overlay=" from overlay.prefix
-    # 3 is the size of the name in eeprom
-    setexpr workAddrRamData ${workAddrRam} + 8
-    eeprom read 1 0x50 ${workAddrRamData} ${overlayNameEepromPos} 3
-    env import -t ${workAddrRam}
-    
-    echo "Using hardware overlay: ${overlay}"
-fi
-
 # load uEnv.txt so it can override the default values (bootargs, overlay ...)
 # we need to load uEnv.txt after overlay= (to be able to overwrite it in uEnv.txt)
 # and before the kernel/devicetree (also to be able to overwrite it in uEnv.txt)
@@ -43,6 +33,23 @@ if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "uEnv.txt"; then
     env import -t ${workAddrRam}
 else
     echo "Could not find uEnv.txt"
+fi
+
+# load first part of the env import command
+# overlay.prefix: "overlay=AAAA\n\0"
+if env exists overlay; then
+	echo "Using overlay from uEnv.txt: ${overlay}"
+else
+	if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "overlay.prefix"; then
+		# load the name of the hardware overlay
+		# 8 ist length of the "overlay=" from overlay.prefix
+		# 3 is the size of the name in eeprom
+		setexpr workAddrRamData ${workAddrRam} + 8
+		eeprom read ${hwoNameEepromBusNr} ${hwoNameEepromI2cAddr} ${workAddrRamData} ${hwoNameEepromPos} ${hwoNameEepromLength}
+		env import -t ${workAddrRam}
+    
+		echo "Using hardware overlay: ${overlay}"
+	fi
 fi
 
 if env exists addBootArgs; then
@@ -70,7 +77,7 @@ if env exists overlay; then
         if fdt apply ${dtOverlayAddr}; then
 			fdt move ${dtSecondAddr} ${dtBaseAddr}
 		else
-			echo "FAILED TO APPLY DTBO: ${overlay}.dtbo"
+			echo "FAILED TO APPLY DTBO: ${overlay}.dtbo. REVERTING."
 		fi
     else
         echo "${overlay}.dtbo does not exist, skipping."
@@ -95,7 +102,7 @@ if env exists overlayList; then
 			if fdt apply ${dtOverlayAddr}; then
 				fdt move ${dtSecondAddr} ${dtBaseAddr}
 			else
-				echo "FAILED TO APPLY DTBO: ${ovl}.dtbo"
+				echo "FAILED TO APPLY DTBO: ${ovl}.dtbo. REVERTING."
 			fi
         else
             echo "${ovl}.dtbo does not exist, skipping."
