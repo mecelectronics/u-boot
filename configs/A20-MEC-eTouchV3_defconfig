@@ -1130,7 +1130,7 @@ CONFIG_SPI_SUNXI=y
 # CONFIG_TEGRA210_QSPI is not set
 # CONFIG_TI_QSPI is not set
 # CONFIG_XILINX_SPI is not set
-# CONFIG_SOFT_SPI is not set
+CONFIG_SOFT_SPI=y
 # CONFIG_FSL_ESPI is not set
 # CONFIG_FSL_QSPI is not set
 # CONFIG_SH_QSPI is not set

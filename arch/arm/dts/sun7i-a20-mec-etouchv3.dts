@@ -12,11 +12,26 @@
 
 	aliases {
 		serial0 = &uart0;
+		spi2 = &softspi2;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+		
 	};
+
+	/* we need soft-spi because sunxi-spi doesn't support 9bit mode */
+	softspi2: soft-spi2 {
+                compatible = "spi-gpio";
+		spi-3wire;
+                cs-gpios = <&pio 1 14 GPIO_ACTIVE_LOW>;
+                gpio-sck = <&pio 1 15 GPIO_ACTIVE_HIGH>;
+                gpio-mosi = <&pio 1 16 GPIO_ACTIVE_HIGH>;
+                gpio-miso = <&pio 1 17 GPIO_ACTIVE_HIGH>;
+                spi-delay-us = <1>;
+                cs@0 {
+                };
+        };
 };
 
 &i2c0 {
