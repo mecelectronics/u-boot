@@ -1,11 +1,15 @@
 boot.cmd-Magie:
 
 Das neue boot.cmd sollte im Allgemeinen so funktionieren wie das alte.
+Was anders ist:
+* mecetouchv3.dtb nur mehr über uEnv.txt einstellbar (nicht mehr load ... devicetree.dtb || load ... mecetouchv3.dtb)
+* boot.scr nimmt als root-Device automatisch die SD/eMMC von der u-boot gestartet wurde.
 
 Falls jedoch die uEnv.txt oder die overlay.prefix Datei in /boot (bzw. auf der ersten Partition!) vorhanden ist, dann:
 * overlay.prefix: Falls diese Datei vorhanden ist (drinnen muss "overlay=AAAA\n\0" stehen!), dann wird:
   - 4 bytes aus dem EEPROM ausgelesen und ersetzen das "AAAA" => z.B. overlay=d350
   - Geschaut ob es ein dtbo oder ein scr mit diesem Namen gibt (also ${overlay}.dtbo, z.B. AAAA.dtbo) und wenn ja, diese geladen
+  - Falls in uEnv.txt die overlay Variable gesetzt ist, wird das Auslesen aus dem EEPROM übersprungen.
 * uEnv.txt: Die Datei kann alle Environment-Variablen ändern. Format: variable=wert Beispiele:
   - initRdName/initRdAddr: eine initrd verwenden
   - bootCmd: z.B. bootCmd=echo um den Bootvorgang zu unterbrechen, bootz, bootefi, ...
@@ -17,8 +21,22 @@ Falls jedoch die uEnv.txt oder die overlay.prefix Datei in /boot (bzw. auf der e
 * dtbo/scr overlays werden nur geladen wenn sie existieren. Gilt sowohl für overlay.prefix als auch overlayList
   - d.h. wenn z.B. overlayList=bla blubb, kann z.B. nur bla.dtbo und blubb.scr vorhanden sein
 
+Beispiel uEnv.txt um von USB zu booten:
+```
+sourceDevType=usb
+sourceDevArg=0:1
+bootargs=console=ttyS0,115200 root=/dev/sda3 rootwait panic=10 sysfs.deprecated=0 ro
+dtName=mecetouchv3.dtb
+```
+
+Beispiel uEnv.txt um Overlay Namen aus EEPROM zu konfigurieren:
+(3 Zeichen von Offset 0x24 am EEPROM)
+```
+hwoNameEepromPos=0x24
+hwoNameEepromBusNr=0x1
+hwoNameEepromI2cAddr=0x50
+hwoNameEepromLength=0x4
+```
 
 TODO:
-* overlay.config hinzufügen:
-  - overlayNameEepromPos Variable in der overlay.config setzen, damit man sie leicht verändern kann.
-  - EEPROM Bus-Nummer, i2c Addresse und die Länge des overlayName-Strings in Variablen auslagern
+* boot unterbrechen explodiert
