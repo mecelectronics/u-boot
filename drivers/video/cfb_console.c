@@ -1434,6 +1434,8 @@ int video_display_bitmap(ulong bmp_image, int x, int y)
 			((y + height - 1) * VIDEO_LINE_LEN) +
 			x * VIDEO_PIXEL_SIZE);
 
+	printf("Displaying bitmap at %x\n", fb);
+
 #ifdef CONFIG_VIDEO_BMP_RLE8
 	if (compression == BMP_BI_RLE8) {
 		return display_rle8_bitmap(bmp, x, y, width, height);
@@ -2213,3 +2215,15 @@ int video_get_screen_columns(void)
 {
 	return CONSOLE_COLS;
 }
+
+static int do_start_sunxi_video(cmd_tbl_t *cmdtp, int flag, int argc,
+		                           char *const argv[])
+{
+	return drv_video_init() ? 1 : 0;
+}
+
+U_BOOT_CMD(
+	start_sunxi_video, CONFIG_SYS_MAXARGS, 0, do_start_sunxi_video,
+	"Start the sunxi video engine",
+	"Start the sunxi video engine. sunxi_lcd_mode environment variable needs to be set first"
+);

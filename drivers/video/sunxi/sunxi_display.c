@@ -1090,7 +1090,14 @@ void *video_hw_init(void)
 	int i, overscan_offset, overscan_x, overscan_y;
 	unsigned int fb_dma_addr;
 	char mon[16];
-	char *lcd_mode = CONFIG_VIDEO_LCD_MODE;
+	char *lcd_mode = env_get("sunxi_lcd_mode");
+
+	if(!lcd_mode) {
+		printf("sunxi_lcd_mode envvar is not defined, skipping display\n");
+		return NULL;
+	}
+
+	printf("Starting display with mode %s\n", lcd_mode);
 
 	memset(&sunxi_display, 0, sizeof(struct sunxi_display));
 
@@ -1323,3 +1330,4 @@ int sunxi_simplefb_setup(void *blob)
 	return ret;
 }
 #endif /* CONFIG_OF_BOARD_SETUP && CONFIG_VIDEO_DT_SIMPLEFB */
+
