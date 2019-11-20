@@ -12,6 +12,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		spi0 = &spi0;
 		spi2 = &softspi2;
 	};
 
@@ -56,6 +57,32 @@
 		compatible = "atmel,24c16";
 		reg = <0x50>;
 		pagesize = <16>;
+	};
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins_pc>,
+				<&spi0_cs0_pins_pc>;
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	spi-nor@0 {
+			compatible = "sst,sst25vf032b", "spansion,s25fl132k", "jedec,spi-nor";
+			spi-max-frequency = <50000000>;
+			reg = <0>;
+	};
+};
+
+&pio {
+	spi0_pins_pc: spi0_pins_pc {
+		pins = "PC0", "PC1", "PC2";
+		function = "spi0";
+	};
+
+	spi0_cs0_pins_pc: spi0_cs0_pins_pc {
+		pins = "PC23";
+		function = "spi0";
 	};
 };
 

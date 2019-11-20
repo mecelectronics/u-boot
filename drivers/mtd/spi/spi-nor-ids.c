@@ -63,6 +63,7 @@
  * old entries may be missing 4K flag.
  */
 const struct flash_info spi_nor_ids[] = {
+	{ INFO("at25sf041",     0x1f8401, 0, 64 * 1024,   8, SECT_4K) },
 #ifdef CONFIG_SPI_FLASH_ATMEL		/* ATMEL */
 	/* Atmel -- some are (confusingly) marketed as "DataFlash" */
 	{ INFO("at26df321",	0x1f4700, 0, 64 * 1024, 64, SECT_4K) },
