@@ -1,10 +1,15 @@
+#### ENVIRONMENT CONFIG ###
+
+# NUMBERS ARE ALWAYS HEX!!!
+# e.g. 0x64 == 64 !!
+
 setenv sourceDevType mmc
 setenv sourceDevArg ${devnum}:1
 
 setenv hwoNameEepromPos 0x0
-setenv hwoNameEepromBusNr 1
+setenv hwoNameEepromBusNr 0x1
 setenv hwoNameEepromI2cAddr 0x50
-setenv hwoNameEepromLength 4
+setenv hwoNameEepromLength 0x4
 
 setenv bootdelay 5
 if itest "${devnum}" == "1"; then setenv bootPart 2; else setenv bootPart 0; fi
@@ -26,8 +31,76 @@ setenv dtOverlayAddr ${workAddrRam}
 setenv initRdName ""
 setenv initRdAddr 0
 
+### "FUNCTIONS" ###
+# U-Boot shell doesn't support functions, but it can run a variable with some logic
+# The semantics are:
+# * setenv function1 <commands>			command/function/environment variable named "function1"
+# * run function1 function2 ...			runs commands from function1, if successful runs commands function2, etc.
+# * setenv command_list '				runs commands after each other independent of their return values (ie. run all comands in list)
+#		command1
+#		command2
+#		...'
+#	run command_list
+
+# Function: load_overlay
+# Environment variables:
+# "arguments":
+# 	(r) overlay					Overlay name to load (dtbo and/or scr)
+# "global variables":
+#	(rw) hwOverlayList		List of loaded overlays
+# "constant global defines":
+#	(r) sourceDevType sourceDevArg dtOverlayAddr dtSecondAddr dtBaseAddr workAddrRam
+#
+# Bash Pseudocode:
+# 	loadFile "${overlay}.dtbo" && copyDtbToTempArea && resizeTempAreaDtb && applyDtboToTempArea && copyDtbToOriginal && publishToDtb
+#	loadFile "${overlay}.scr" && source "${overlay}.scr" && publishToDtb
+#   ...with a few echo to log what's happening
+#
+# we need to apply the dtbo on a copy of the dtb
+# because it breaks the dtb if it fails to apply
+# $filesize is automatic from u-boot
+setenv load_overlay_publish 'fdt set /mec/hw_overlays/ ${overlayFile} && setenv hwOverlayList "${hwOverlayList} ${overlayFile}"'
+
+setenv load_overlay_dtbo_patch 'fdt move ${dtBaseAddr} ${dtSecondAddr} && fdt resize ${filesize} && fdt apply ${dtOverlayAddr} && fdt move ${dtSecondAddr} ${dtBaseAddr}'
+setenv load_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlayFile}" && run load_overlay_dtbo_patch load_overlay_publish'
+setenv load_overlay_dtbo 'run load_overlay_dtbo_do || echo "Could not load ${overlayFile}"'
+
+# load additional script needed by hardware 
+setenv load_overlay_scr_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlayFile}" && source ${workAddrRam} && run load_overlay_publish'
+setenv load_overlay_scr 'run load_overlay_scr_do || echo "Could not load ${overlayFile}"'
+
+setenv load_overlay '
+	setenv overlayFile ${overlay}.dtbo
+	run load_overlay_dtbo
+	setenv overlayFile ${overlay}.scr
+	run load_overlay_scr'
+
+# Function load_eeprom_overlay_name
+# Environment variables:
+# "constant global defines":
+#	(r) hwoNameEepromBusNr hwoNameEepromI2cAddr hwoNameEepromPos hwoNameEepromLength workAddrRamData workAddrRam
+# "global variables":
+#	(w) overlay
+#
+# Pseudocode:
+# 	write "overlay=" to $workAddrRam + 0x17 (0x17 because of "_eeprom_overlay_prefix=" that u-boot writes)
+#	read 4 bytes from eeprom and put them after "overlay=" (0x1F bytes because of "_eeprom_overlay_prefix=overlay=")
+#	import environment variable from $workAddrRam + 0x17 (equals overlay=<4 bytes from eeprom>)
+setenv load_eeprom_overlay_name_write_prefix '
+	setenv _eeprom_overlay_prefix overlay=AAAA
+	env export -t ${workAddrRam} _eeprom_overlay_prefix
+	env delete -f _eeprom_overlay_prefix'
+setenv load_eeprom_overlay_name_load_data 'eeprom read ${hwoNameEepromBusNr} ${hwoNameEepromI2cAddr} ${workAddrRamData} ${hwoNameEepromPos} ${hwoNameEepromLength}'
+
+setenv load_eeprom_overlay_name '
+	run load_eeprom_overlay_name_write_prefix
+	setexpr workAddrRamData ${workAddrRam} + 0x1F
+	run load_eeprom_overlay_name_load_data && setexpr workAddrRamData ${workAddrRam} + 0x17 && env import -t ${workAddrRamData}'
+
+
+### MAIN CODE ###
+
 # load uEnv.txt so it can override the default values (bootargs, overlay ...)
-# we need to load uEnv.txt after overlay= (to be able to overwrite it in uEnv.txt)
 # and before the kernel/devicetree (also to be able to overwrite it in uEnv.txt)
 echo "Loading uEnv.txt..."
 if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "uEnv.txt"; then
@@ -36,21 +109,20 @@ else
     echo "Could not find uEnv.txt"
 fi
 
-# load first part of the env import command
-# overlay.prefix: "overlay=AAAA\n\0"
-if env exists overlay; then
-	echo "Using overlay from uEnv.txt: ${overlay}"
+if env exists runCmd; then
+	run runCmd
+fi
+
+echo "Loading device tree: ${dtName}"
+# load device tree
+if load ${sourceDevType} ${sourceDevArg} ${dtBaseAddr} ${dtName}; then
+    fdt addr ${dtBaseAddr}
+	fdt resize 1024
+	fdt mknode / mec
+	fdt mknode /mec sysval
+	fdt mknode /mec hw_overlays
 else
-	if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "overlay.prefix"; then
-		# load the name of the hardware overlay
-		# 8 ist length of the "overlay=" from overlay.prefix
-		# 3 is the size of the name in eeprom
-		setexpr workAddrRamData ${workAddrRam} + 8
-		eeprom read ${hwoNameEepromBusNr} ${hwoNameEepromI2cAddr} ${workAddrRamData} ${hwoNameEepromPos} ${hwoNameEepromLength}
-		env import -t ${workAddrRam}
-    
-		echo "Using hardware overlay: ${overlay}"
-	fi
+    echo "FAILED TO LOAD DEVICE TREE: ${dtName}"
 fi
 
 if env exists addBootArgs; then
@@ -58,65 +130,19 @@ if env exists addBootArgs; then
 	echo "New bootargs: ${bootargs}"
 fi
 
-echo "Loading device tree: ${dtName}"
-# load device tree
-if load ${sourceDevType} ${sourceDevArg} ${dtBaseAddr} ${dtName}; then
-    fdt addr ${dtBaseAddr}
-else
-    echo "FAILED TO LOAD DEVICE TREE: ${dtName}"
-fi
+# load script from emmc boot partition: try boot0, if it fails load from boot1
+setenv load_from_boot0 "mmc dev 1 1 && mmc read ${workAddrRam} 0x7c0 0x40 && source ${workAddrRam}"
+setenv load_from_boot1 "mmc dev 1 2 && mmc read ${workAddrRam} 0x7c0 0x40 && source ${workAddrRam}"
+run load_from_boot0 || run load_from_boot1
 
-# load hardware dtbo
-if env exists overlay; then
-	echo "Loading: ${overlay}.dtbo"
-    if load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlay}.dtbo"; then
-		# we need to apply the dtbo on a copy of the dtb
-		# because it breaks the dtb if it fails to apply
-		fdt move ${dtBaseAddr} ${dtSecondAddr}
-		# $filesize is automatic
-		fdt resize $filesize
-        if fdt apply ${dtOverlayAddr}; then
-			fdt move ${dtSecondAddr} ${dtBaseAddr}
-		else
-			echo "FAILED TO APPLY DTBO: ${overlay}.dtbo. REVERTING."
-		fi
-    else
-        echo "${overlay}.dtbo does not exist, skipping."
-    fi
+# load hw_overlays and any additional dtbo/scripts listed in overlayList in uEnv.txt 
+setenv hw_overlays "${hw_overlays} ${overlayList}"
 
-	echo "Loading: ${overlay}.scr"
-    # load additional script needed by hardware 
-    if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlay}.scr"; then
-        source ${workAddrRam}
-    else
-        echo "${overlay}.scr does not exist, skipping."
-    fi
-fi
-
-# load any additional dtbo/scripts listed in overlayList in uEnv.txt 
-if env exists overlayList; then
-	for ovl in ${overlayList}; do
-		echo "Loading: ${ovl}.dtbo"
-		if load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${ovl}.dtbo"; then
-            fdt move ${dtBaseAddr} ${dtSecondAddr}
-			fdt resize $filesize
-			if fdt apply ${dtOverlayAddr}; then
-				fdt move ${dtSecondAddr} ${dtBaseAddr}
-			else
-				echo "FAILED TO APPLY DTBO: ${ovl}.dtbo. REVERTING."
-			fi
-        else
-            echo "${ovl}.dtbo does not exist, skipping."
-        fi
-		
-		echo "Loading: ${ovl}.scr"
-        if load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${ovl}.scr"; then
-            source ${workAddrRam}
-        else
-            echo "${ovl}.scr does not exist, skipping."
-        fi
-	done
-fi
+for overlayNm in ${hw_overlays}; do
+	setenv overlay ${overlayNm}
+	run load_overlay
+done
+fdt set /mec/hw_overlays list ${hwOverlayList}
 
 # load kernel
 # the kernel has to be loaded after finishing device tree setups because we're
@@ -126,8 +152,6 @@ if load ${sourceDevType} ${sourceDevArg} ${kernelAddr} ${kernelName}; then
 else
     echo "FAILED TO LOAD KERNEL: ${kernelName}"
 fi
-
-# bootm ${kernelAddr} - ${dtBaseAddr}
 
 if test "${initRdName}" = ""; then
     ${bootCmd} ${kernelAddr} - ${dtBaseAddr}
