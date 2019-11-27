@@ -13,7 +13,7 @@ setenv hwoNameEepromLength 0x4
 
 setenv bootdelay 5
 if itest "${devnum}" == "1"; then setenv bootPart 2; else setenv bootPart 0; fi
-setenv bootargs console=ttyS0,115200 root=/dev/mmcblk${bootPart}p1 rootwait panic=10 sysfs.deprecated=0 ro rootfstype=ext4 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M
+setenv bootargs console=ttyS0,115200 root=/dev/mmcblk${bootPart}p3 rootwait panic=10 sysfs.deprecated=0 ro rootfstype=ext4 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M
 
 setenv bootCmd "bootm"
 setenv kernelName "uImage"
