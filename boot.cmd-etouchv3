@@ -59,7 +59,7 @@ setenv initRdAddr 0
 # we need to apply the dtbo on a copy of the dtb
 # because it breaks the dtb if it fails to apply
 # $filesize is automatic from u-boot
-setenv load_overlay_publish 'fdt set /mec/hw_overlays/ ${overlayFile} && setenv hwOverlayList "${hwOverlayList} ${overlayFile}"'
+setenv load_overlay_publish 'fdt addr ${dtBaseAddr} && fdt set /mec/hw_overlays/ ${overlayFile} && setenv hwOverlayList "${hwOverlayList} ${overlayFile}"'
 
 setenv load_overlay_dtbo_patch 'fdt move ${dtBaseAddr} ${dtSecondAddr} && fdt resize ${filesize} && fdt apply ${dtOverlayAddr} && fdt move ${dtSecondAddr} ${dtBaseAddr}'
 setenv load_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlayFile}" && run load_overlay_dtbo_patch load_overlay_publish'
