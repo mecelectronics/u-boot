@@ -70,9 +70,9 @@ setenv load_overlay_scr_do 'echo "Loading: ${overlayFile}" && load ${sourceDevTy
 setenv load_overlay_scr 'run load_overlay_scr_do || echo "Could not load ${overlayFile}"'
 
 setenv load_overlay '
-	setenv overlayFile ${overlay}.dtbo
+	setenv overlayFile "overlays/${overlay}.dtbo"
 	run load_overlay_dtbo
-	setenv overlayFile ${overlay}.scr
+	setenv overlayFile "overlays/${overlay}.scr"
 	run load_overlay_scr'
 
 # Function load_eeprom_overlay_name
