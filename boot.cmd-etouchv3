@@ -22,7 +22,7 @@ setenv hwoNameEepromLength 0x4
 setenv bootdelay 5
 if itest "${devnum}" == "1"; then setenv bootPart 2; else setenv bootPart 0; fi
 
-setenv bootargs console=ttyS0,115200 panic=10 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M imgsource=/dev/mmcblk${bootPart}p3:::images/ bind_imgsource=/mnt/img fitmodules=/dev/mmcblk${bootPart}p1:vfat::
+setenv bootargs console=ttyS0,115200 panic=10 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M imgsource=/dev/mmcblk${bootPart}p3:::images/ bind_imgsource=/mnt/rootfsimg fitmodules=/dev/mmcblk${bootPart}p1:vfat::
 
 setenv bootCmd "bootm"
 setenv kernelName "uImage"
@@ -30,7 +30,7 @@ setenv kernelAddr  0x44000000
 
 setenv fitKernel "kernel@1"
 setenv fitInitrd "ramdisk@1"
-setenv fitDt "fdt@1"
+setenv fitDt "devicetree.dtb@1"
 
 setenv fitName "boot.itb"
 setenv fitAddr  0x44000000
