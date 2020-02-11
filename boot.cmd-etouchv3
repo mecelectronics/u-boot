@@ -3,6 +3,14 @@
 # NUMBERS ARE ALWAYS HEX!!!
 # e.g. 0x64 == 64 !!
 
+# ram:
+# 0x4000 8000 - 0x41ff ffff kernel-runtime (32mb)
+# 0x4200 0000 - 0x4400 0000 /workspace
+# 0x4200 0000 - 0x427f ffff - dt main
+# 0x4280 0000 - 0x42ff ffff - dt second
+# 0x4400 0000 - fit image
+# 0x4800 0000 - script/dtbo (workaddr)
+
 setenv sourceDevType mmc
 setenv sourceDevArg ${devnum}:1
 
@@ -13,23 +21,30 @@ setenv hwoNameEepromLength 0x4
 
 setenv bootdelay 5
 if itest "${devnum}" == "1"; then setenv bootPart 2; else setenv bootPart 0; fi
-setenv bootargs console=ttyS0,115200 root=/dev/mmcblk${bootPart}p3 rootwait panic=10 sysfs.deprecated=0 ro rootfstype=ext4 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M
+
+setenv bootargs console=ttyS0,115200 panic=10 drm_kms_helper.drm_leak_fbdev_smem=1 cma=256M imgsource=/dev/mmcblk${bootPart}p3:::images/ bind_imgsource=/mnt/img fitmodules=/dev/mmcblk${bootPart}p1:vfat::
 
 setenv bootCmd "bootm"
 setenv kernelName "uImage"
-setenv kernelAddr  0x42000000
+setenv kernelAddr  0x44000000
 
-# not sure where else is safe to write
-# note that the kernel has to be loaded after finishing device tree setup
-setenv workAddrRam ${kernelAddr}
+setenv fitKernel "kernel@1"
+setenv fitInitrd "ramdisk@1"
+setenv fitDt "fdt@1"
+
+setenv fitName "boot.itb"
+setenv fitAddr  0x44000000
+setenv fitConfig "config@1"
+
+setenv workAddrRam 0x48000000
 
 setenv dtName "devicetree.dtb"
-setenv dtBaseAddr 0x43000000
-setenv dtSecondAddr 0x40008000
+setenv dtBaseAddr 0x42000000
+setenv dtSecondAddr 0x42800000
 setenv dtOverlayAddr ${workAddrRam}
 
 setenv initRdName ""
-setenv initRdAddr 0
+setenv initRdAddr 0x46000000
 
 ### "FUNCTIONS" ###
 # U-Boot shell doesn't support functions, but it can run a variable with some logic
@@ -42,7 +57,7 @@ setenv initRdAddr 0
 #		...'
 #	run command_list
 
-# Function: load_overlay
+# Function: load_fit_overlay
 # Environment variables:
 # "arguments":
 # 	(r) overlay					Overlay name to load (dtbo and/or scr)
@@ -60,11 +75,23 @@ setenv initRdAddr 0
 # because it breaks the dtb if it fails to apply
 # $filesize is automatic from u-boot
 setenv load_overlay_publish 'fdt addr ${dtBaseAddr} && fdt set /mec/hw_overlays/ ${overlayFile} && setenv hwOverlayList "${hwOverlayList} ${overlayFile}"'
-
 setenv load_overlay_dtbo_patch 'fdt move ${dtBaseAddr} ${dtSecondAddr} && fdt resize ${filesize} && fdt apply ${dtOverlayAddr} && fdt move ${dtSecondAddr} ${dtBaseAddr}'
+
+setenv load_fit_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${dtOverlayAddr} && run load_overlay_dtbo_patch load_overlay_publish'
+setenv load_fit_overlay_dtbo 'run load_fit_overlay_dtbo_do || echo "Could not load ${overlayFile}"'
+# load additional script needed by hardware 
+setenv load_fit_overlay_scr_do 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${workAddrRam} && source ${workAddrRam} && run load_overlay_publish'
+setenv load_fit_overlay_scr 'run load_fit_overlay_scr_do || echo "Could not load ${overlayFile}"'
+
+setenv load_fit_overlay '
+	setenv overlayFile "${overlay}.dtbo"
+	run load_fit_overlay_dtbo
+	setenv overlayFile "${overlay}.scr"
+	run load_fit_overlay_scr'
+	
+	
 setenv load_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlayFile}" && run load_overlay_dtbo_patch load_overlay_publish'
 setenv load_overlay_dtbo 'run load_overlay_dtbo_do || echo "Could not load ${overlayFile}"'
-
 # load additional script needed by hardware 
 setenv load_overlay_scr_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlayFile}" && source ${workAddrRam} && run load_overlay_publish'
 setenv load_overlay_scr 'run load_overlay_scr_do || echo "Could not load ${overlayFile}"'
@@ -74,6 +101,7 @@ setenv load_overlay '
 	run load_overlay_dtbo
 	setenv overlayFile "overlays/${overlay}.scr"
 	run load_overlay_scr'
+
 
 # Function load_eeprom_overlay_name
 # Environment variables:
@@ -113,18 +141,6 @@ if env exists runCmd; then
 	run runCmd
 fi
 
-echo "Loading device tree: ${dtName}"
-# load device tree
-if load ${sourceDevType} ${sourceDevArg} ${dtBaseAddr} ${dtName}; then
-    fdt addr ${dtBaseAddr}
-	fdt resize 1024
-	fdt mknode / mec
-	fdt mknode /mec sysval
-	fdt mknode /mec hw_overlays
-else
-    echo "FAILED TO LOAD DEVICE TREE: ${dtName}"
-fi
-
 if env exists addBootArgs; then
     setenv bootargs "${bootargs} ${addBootArgs}"
 	echo "New bootargs: ${bootargs}"
@@ -138,24 +154,46 @@ run load_from_boot0 || run load_from_boot1
 # load hw_overlays and any additional dtbo/scripts listed in overlayList in uEnv.txt 
 setenv hw_overlays "${hw_overlays} ${overlayList}"
 
-for overlayNm in ${hw_overlays}; do
-	setenv overlay ${overlayNm}
-	run load_overlay
-done
+setenv dt_initialize_mec 'fdt addr ${dtBaseAddr} && fdt resize 1024 && fdt mknode / mec && fdt mknode /mec sysval && fdt mknode /mec hw_overlays'
+
+setenv load_legacy_images 'load ${sourceDevType} ${sourceDevArg} ${dtBaseAddr} ${dtName} && load ${sourceDevType} ${sourceDevArg} ${kernelAddr} ${kernelName}'
+
+if load ${sourceDevType} ${sourceDevArg} ${fitAddr} ${fitName}; then
+	setenv kernelSource "${fitAddr}:${fitKernel}"
+	setenv initrdSource "${fitAddr}:${fitInitrd}"
+	
+	echo "Booting FIT image: kernel ${fitKernel}, initrd ${fitInitrd}, dt ${fitDt}."
+	if imxtract ${fitAddr} ${fitDt} ${dtBaseAddr}; then
+		echo "6"
+		run dt_initialize_mec
+		for overlayNm in ${hw_overlays}; do
+			setenv overlay ${overlayNm}
+			run load_fit_overlay
+		done
+	else
+		echo "FAILED to load ${fitDt} from ${fitName}! It will probably crash."
+	fi
+elif run load_legacy_images; then
+	echo "Booting legacy images: kernel ${kernelName}, dt ${dtName}."
+	run dt_initialize_mec
+	for overlayNm in ${hw_overlays}; do
+		setenv overlay ${overlayNm}
+		run load_overlay
+	done
+	setenv kernelSource ${kernelAddr}
+
+	if test "${initRdName}" = ""; then
+		echo "Skipping initrd"
+		setenv initrdSource "-"
+	else
+		echo "Also using initrd ${initRdName}."
+		load ${sourceDevType} ${sourceDevArg} ${initRdAddr} ${initRdName}
+		setenv initrdSource ${initRdAddr}
+	fi
+else
+	echo "FAILED to load any boot format. Undefined behavior"
+	exit
+fi
 fdt set /mec/hw_overlays list ${hwOverlayList}
 
-# load kernel
-# the kernel has to be loaded after finishing device tree setups because we're
-# using the kernel address as our workspace
-if load ${sourceDevType} ${sourceDevArg} ${kernelAddr} ${kernelName}; then
-    echo "Booting Image \"${kernelName}\" with arguments: ${bootargs}"
-else
-    echo "FAILED TO LOAD KERNEL: ${kernelName}"
-fi
-
-if test "${initRdName}" = ""; then
-    ${bootCmd} ${kernelAddr} - ${dtBaseAddr}
-else
-    load ${sourceDevType} ${sourceDevArg} ${initRdAddr} ${initRdName}
-    ${bootCmd} ${kernelAddr} ${initRdAddr} ${dtBaseAddr}
-fi
+${bootCmd} ${kernelSource} ${initrdSource} ${dtBaseAddr}
