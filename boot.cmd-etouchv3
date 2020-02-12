@@ -149,7 +149,6 @@ fi
 # load script from emmc boot partition: try boot0, if it fails load from boot1
 setenv load_from_boot0 "mmc dev 1 1 && mmc read ${workAddrRam} 0x7c0 0x40 && source ${workAddrRam}"
 setenv load_from_boot1 "mmc dev 1 2 && mmc read ${workAddrRam} 0x7c0 0x40 && source ${workAddrRam}"
-run load_from_boot0 || run load_from_boot1
 
 # load hw_overlays and any additional dtbo/scripts listed in overlayList in uEnv.txt 
 setenv hw_overlays "${hw_overlays} ${overlayList}"
@@ -166,6 +165,7 @@ if load ${sourceDevType} ${sourceDevArg} ${fitAddr} ${fitName}; then
 	if imxtract ${fitAddr} ${fitDt} ${dtBaseAddr}; then
 		echo "6"
 		run dt_initialize_mec
+		run load_from_boot0 || run load_from_boot1
 		for overlayNm in ${hw_overlays}; do
 			setenv overlay ${overlayNm}
 			run load_fit_overlay
@@ -176,6 +176,7 @@ if load ${sourceDevType} ${sourceDevArg} ${fitAddr} ${fitName}; then
 elif run load_legacy_images; then
 	echo "Booting legacy images: kernel ${kernelName}, dt ${dtName}."
 	run dt_initialize_mec
+	run load_from_boot0 || run load_from_boot1
 	for overlayNm in ${hw_overlays}; do
 		setenv overlay ${overlayNm}
 		run load_overlay
