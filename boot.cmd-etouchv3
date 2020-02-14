@@ -77,11 +77,9 @@ setenv initRdAddr 0x46000000
 setenv load_overlay_publish 'fdt addr ${dtBaseAddr} && fdt set /mec/hw_overlays/ ${overlayFile} && setenv hwOverlayList "${hwOverlayList} ${overlayFile}"'
 setenv load_overlay_dtbo_patch 'fdt move ${dtBaseAddr} ${dtSecondAddr} && fdt resize ${filesize} && fdt apply ${dtOverlayAddr} && fdt move ${dtSecondAddr} ${dtBaseAddr}'
 
-setenv load_fit_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${dtOverlayAddr} && run load_overlay_dtbo_patch load_overlay_publish'
-setenv load_fit_overlay_dtbo 'run load_fit_overlay_dtbo_do || echo "Could not load ${overlayFile}"'
+setenv load_fit_overlay_dtbo 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${dtOverlayAddr} && run load_overlay_dtbo_patch load_overlay_publish'
 # load additional script needed by hardware 
-setenv load_fit_overlay_scr_do 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${workAddrRam} && source ${workAddrRam} && run load_overlay_publish'
-setenv load_fit_overlay_scr 'run load_fit_overlay_scr_do || echo "Could not load ${overlayFile}"'
+setenv load_fit_overlay_scr 'echo "Loading: ${overlayFile}" && imxtract ${fitAddr} "${overlayFile}@1" ${workAddrRam} && source ${workAddrRam} && run load_overlay_publish'
 
 setenv load_fit_overlay '
 	setenv overlayFile "${overlay}.dtbo"
@@ -90,11 +88,9 @@ setenv load_fit_overlay '
 	run load_fit_overlay_scr'
 	
 	
-setenv load_overlay_dtbo_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlayFile}" && run load_overlay_dtbo_patch load_overlay_publish'
-setenv load_overlay_dtbo 'run load_overlay_dtbo_do || echo "Could not load ${overlayFile}"'
+setenv load_overlay_dtbo 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${dtOverlayAddr} "${overlayFile}" && run load_overlay_dtbo_patch load_overlay_publish'
 # load additional script needed by hardware 
-setenv load_overlay_scr_do 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlayFile}" && source ${workAddrRam} && run load_overlay_publish'
-setenv load_overlay_scr 'run load_overlay_scr_do || echo "Could not load ${overlayFile}"'
+setenv load_overlay_scr 'echo "Loading: ${overlayFile}" && load ${sourceDevType} ${sourceDevArg} ${workAddrRam} "${overlayFile}" && source ${workAddrRam} && run load_overlay_publish'
 
 setenv load_overlay '
 	setenv overlayFile "overlays/${overlay}.dtbo"
@@ -163,12 +159,11 @@ if load ${sourceDevType} ${sourceDevArg} ${fitAddr} ${fitName}; then
 	
 	echo "Booting FIT image: kernel ${fitKernel}, initrd ${fitInitrd}, dt ${fitDt}."
 	if imxtract ${fitAddr} ${fitDt} ${dtBaseAddr}; then
-		echo "6"
 		run dt_initialize_mec
 		run load_from_boot0 || run load_from_boot1
 		for overlayNm in ${hw_overlays}; do
 			setenv overlay ${overlayNm}
-			run load_fit_overlay
+			run load_overlay || run load_fit_overlay
 		done
 	else
 		echo "FAILED to load ${fitDt} from ${fitName}! It will probably crash."
