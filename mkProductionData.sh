@@ -8,9 +8,10 @@ If output file is "-" the generated script will be printed to stdout.
 
 Format of input file:
 Lines starting with "sysval_" are:
+* appended to hw_overlays with <option>_<value>
 * parsed into environment variables sysval_<variable name> and assigned <value>
 * passed to the device tree as /mec/sysval/<variable_name> and assigned <value>
-Line with hw_overlays is parsed and used to load overlays.
+Line with hw_overlays is parsed and appended to the generated hw_overlays.
 The list of overlays is passed to the device tree in /mec/hw_overlays
 Every other line is passed into the script
 
@@ -24,22 +25,33 @@ HELPTEXT
 	exit 0
 fi
 
+genTempScript() {
+	local inputFile="$1"
+	local hw_overlays="default"
+
+	while read line; do
+		local varname=$(echo $line | cut -d'=' -f1)
+		local value=$(echo $line | cut -d'=' -f2-)
+		
+		if [[ $(echo "$varname" | cut -d'_' -f1) == "sysval" ]]; then
+			echo "setenv $varname \"$value\""
+			echo "fdt set /mec/sysval $varname \"$value\""
+			hw_overlays="$hw_overlays $(echo $varname | sed -e 's/sysval_//g')_${value}"
+		elif [[ "$varname" == "hw_overlays" ]]; then
+			hw_overlays="$hw_overlays $value"
+		else
+			echo "$line"
+		fi
+	done < "$inputFile"
+
+	if [[ ! -z "$hw_overlays" ]]; then
+		echo "setenv hw_overlays ${hw_overlays}"
+	fi
+}
+
 tempScript=$(mktemp)
 
-
-while read line; do
-	varname=$(echo $line | cut -d'=' -f1)
-	value=$(echo $line | cut -d'=' -f2-)
-
-	if [[ $(echo "$varname" | cut -d'_' -f1) == "sysval" ]]; then
-		echo "setenv $varname \"$value\""
-		echo "fdt set /mec/sysval $varname \"$value\""
-	elif [[ "$varname" == "hw_overlays" ]]; then
-		echo "setenv hw_overlays ${value}"
-	else
-		echo "$line"
-	fi
-done < "${2:-/dev/stdin}" >> $tempScript
+genTempScript "${2:-/dev/stdin}" > "$tempScript"
 
 #if output is stdout
 if [ "$1" == "-" ]; then
