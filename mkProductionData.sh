@@ -30,7 +30,7 @@ tempScript=$(mktemp)
 while read line; do
 	varname=$(echo $line | cut -d'=' -f1)
 	value=$(echo $line | cut -d'=' -f2-)
-	
+
 	if [[ $(echo "$varname" | cut -d'_' -f1) == "sysval" ]]; then
 		echo "setenv $varname \"$value\""
 		echo "fdt set /mec/sysval $varname \"$value\""
