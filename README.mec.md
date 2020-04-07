@@ -42,6 +42,15 @@ hwoNameEepromLength=0x4
 TODO:
 * boot unterbrechen explodiert
 
+# "API"
+
+```
+# "argument" overlay auf "value" setzen
+setenv overlay "value"
+# overlays laden
+run load_overlay || run load_fit_overlay
+```
+
 # Production Data
 
 ## Aktuell

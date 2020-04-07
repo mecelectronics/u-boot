@@ -36,7 +36,10 @@ genTempScript() {
 		if [[ $(echo "$varname" | cut -d'_' -f1) == "sysval" ]]; then
 			echo "setenv $varname \"$value\""
 			echo "fdt set /mec/sysval $varname \"$value\""
-			hw_overlays="$hw_overlays $(echo $varname | sed -e 's/sysval_//g')_${value}"
+		elif [[ $(echo "$varname" | cut -d'_' -f1) == "hw" ]]; then
+			echo "setenv $varname \"$value\""
+			echo "fdt set /mec/sysval $varname \"$value\""
+			hw_overlays="$hw_overlays $(echo $varname | sed -e 's/hw_//g')_${value}"
 		elif [[ "$varname" == "hw_overlays" ]]; then
 			hw_overlays="$hw_overlays $value"
 		else
